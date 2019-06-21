@@ -1,133 +1,152 @@
-import { buildDef } from '../core/graph';
-import { buildHierarchy } from '../core/hierarchy';
-import { NodeType, ROOT_NAME } from '../core/interface';
-import { layoutScene } from '../core/layout';
-import { stylize, traceInputs } from '../core/node';
-import { buildRender } from '../core/render';
-import { buildGroupScene, getNodeElementByName } from '../core/scene';
-import { DagreZoom } from '../core/zoom';
-import * as d3 from 'd3'
+import { buildDef } from "./core/graph";
+import { buildHierarchy } from "./core/hierarchy";
+import { NodeType, ROOT_NAME } from "./core/interface";
+import { layoutScene } from "./core/layout";
+import { stylize, traceInputs } from "./core/node";
+import { buildRender } from "./core/render";
+import { buildGroupScene, getNodeElementByName } from "./core/scene";
+import { DagreZoom } from "./core/zoom";
+import * as d3 from "d3";
 import GraphMinmapComponent from "./GraphMinmapComponent";
+import * as _ from "lodash";
+import { EventEmitter } from "events";
 
+let emitter = new EventEmitter();
 
+export default class GraphComponent {
+  constructor(beforeToggleExpand, event) {
+    this.beforeToggleExpand = beforeToggleExpand;
+    this.event = event;
+    this.zoomInit = emitter;
+    this.$root = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    this.$root.setAttribute("id", "svg");
+    this.$svg = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    this.$svg.setAttribute("id", "groot");
+    let reactNode = document.createElement("rect");
+    reactNode.classList.add("graph-make");
+    reactNode.classList.add("nz-graph-make");
+    reactNode.setAttribute("width", "10000");
+    reactNode.setAttribute("height", "10000");
+    this.$root.appendChild(reactNode);
+    this.$root.appendChild(this.$svg);
+    let minzoomSvg = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "svg"
+    );
 
-export default  class GraphComponent {
-  constructor(beforeToggleExpand,
-              event,
-              zoomInit
-              ) {
-    this.beforeToggleExpand = beforeToggleExpand
-    this.event = event
-    this.zoomInit = zoomInit
-    this.$root = document.createElementNS('http://www.w3.org/2000/svg',"svg");
-    this.$root.setAttribute("id","svg")
-    this.$svg = document.createElementNS('http://www.w3.org/2000/svg',"g");
-    this.$svg.setAttribute("id","groot")
-    let reactNode = document.createElement("rect")
-    reactNode.classList.add("graph-make")
-    reactNode.classList.add("nz-graph-make")
-    reactNode.setAttribute("width","10000")
-    reactNode.setAttribute("height","10000")
-    this.$root.appendChild(reactNode).appendChild(this.$svg)
-    let minzoomSvg = document.createElementNS('http://www.w3.org/2000/svg',"svg");
-    let minzooRect= document.createElement("rect")
-    minzoomSvg.appendChild(minzooRect)
-    this.rootEle = document.createElement("div")
-    let firstCanvas = document.createElement("canvas")
-    firstCanvas.classList.add("first")
-    let secondCanvas = document.createElement("canvas")
-    secondCanvas.classList.add("second")
-    let downloadCanvas = document.createElement("canvas")
-    downloadCanvas.classList.add("download")
-    this.$minmapDiv = document.createElement("div")
-    this.$minmapDiv.appendChild(minzoomSvg)
-    this.$minmapDiv.appendChild(minzooRect)
+    let minzooRect = document.createElement("rect");
+    minzoomSvg.appendChild(minzooRect);
+    this.rootEle = document.createElement("div");
+    let firstCanvas = document.createElement("canvas");
+    firstCanvas.classList.add("first");
+    let secondCanvas = document.createElement("canvas");
+    secondCanvas.classList.add("second");
+    let downloadCanvas = document.createElement("canvas");
+    downloadCanvas.classList.add("download");
+    this.$minmapDiv = document.createElement("div");
+    this.$minmapDiv.appendChild(minzoomSvg);
+    this.$minmapDiv.appendChild(minzooRect);
 
-    this.$minmapDiv.appendChild(firstCanvas)
-    this.$minmapDiv.appendChild(secondCanvas)
-    this.$minmapDiv.appendChild(downloadCanvas)
-    this.rootEle.appendChild(this.$root)
-    this.rootEle.appendChild(this.$minmapDiv)
+    this.$minmapDiv.appendChild(firstCanvas);
+    this.$minmapDiv.appendChild(secondCanvas);
+    this.$minmapDiv.appendChild(downloadCanvas);
+    this.rootEle.appendChild(this.$root);
+    this.rootEle.appendChild(this.$minmapDiv);
 
     this.portalCacheMap = new Map();
     this._edgeGroupIndex = [];
     this._nodeGroupIndex = {};
-    this.minmap = GraphMinmapComponent(this.$minmapDiv,this)
+    this.minmap = new GraphMinmapComponent(this.$minmapDiv, this);
   }
 
   baseRoot = () => {
-    return this.rootEle
-  }
-  buildGraph =  (graphDef) => {
+    return this.rootEle;
+  };
+  buildGraph = graphDef => {
     var _this = this;
     // 构建 GraphDef
     return buildDef(graphDef)
-      .then(function (graph) {
+      .then(function(graph) {
         _this.graph = graph;
+        console.log("buildDef");
+
+        console.log(graph);
         // 构建 Hierarchy
-        return buildHierarchy(graph, { rankDirection: 'LR' });
+        return buildHierarchy(graph, { rankDirection: "LR" });
       })
-      .then(function (graphHierarchy) {
+      .then(function(graphHierarchy) {
+        console.log("buildDef.then");
+
+        console.log(graphHierarchy);
         _this.graphHierarchy = graphHierarchy;
         return _this.graphHierarchy;
       });
-  }
-  buildRenderGraphInfo = (graphHierarchy) => {
+  };
+  buildRenderGraphInfo = graphHierarchy => {
     var _this = this;
-    return buildRender(graphHierarchy)
-      .then(function (renderGraph) {
-        _this.renderHierarchy = renderGraph;
-        return _this.renderHierarchy;
-      });
-  }
-  layoutScene = (renderHierarchy) => {
+    return buildRender(graphHierarchy).then(function(renderGraph) {
+      console.log("renderGraph");
+      console.log(renderGraph);
+      _this.renderHierarchy = renderGraph;
+      return _this.renderHierarchy;
+    });
+  };
+  layoutScene = renderHierarchy => {
     layoutScene(renderHierarchy, this);
   };
 
-  buildGroupScene =  (renderHierarchy) =>  {
-    this.sceneGroup = buildGroupScene(d3.select(this.$root), renderHierarchy, this);
+  buildGroupScene = renderHierarchy => {
+    this.sceneGroup = buildGroupScene(
+      d3.select(this.$root),
+      renderHierarchy,
+      this
+    );
+    console.log("end buildGroup Scene");
+    console.log(this.sceneGroup);
   };
 
-
-  nodeToggleExpand = (event) => {
-
+  nodeToggleExpand = event => {
     var nodeName = event.name;
 
     var renderNode = this.renderHierarchy.getRenderNodeByName(nodeName);
     if (renderNode.node.type === NodeType.OP) {
       return;
     }
-    if (typeof this.beforeToggleExpand === 'function' && !this.beforeToggleExpand(renderNode)) {
+    if (
+      typeof this.beforeToggleExpand === "function" &&
+      !this.beforeToggleExpand(renderNode)
+    ) {
       return;
     }
     this.renderHierarchy.buildSubhierarchy(nodeName);
     renderNode.expanded = !renderNode.expanded;
     this.event.emit({
-      eventName: 'node-toggle-expand',
+      eventName: "node-toggle-expand",
       event: renderNode
     });
     this.build();
   };
-  clean = ()  => {
+  clean = () => {
     this._nodeGroupIndex = {};
     this._edgeGroupIndex = [];
-    this.portalCacheMap.forEach(function (v) {
+    /*
+    this.portalCacheMap.forEach(function(v) {
       v.host.dispose();
       v.temp = null;
     });
     this.portalCacheMap.clear();
+    */
     if (this.sceneGroup) {
-      this.sceneGroup.selectAll('*').remove();
+      this.sceneGroup.selectAll("*").remove();
     }
   };
 
-
   build = () => {
     var _this = this;
-    requestAnimationFrame(function () {
+    requestAnimationFrame(function() {
       _this.layoutScene(_this.renderHierarchy.root);
       _this.buildGroupScene(_this.renderHierarchy.root);
-      setTimeout(function () {
+      setTimeout(function() {
         if (_this.selectedNode) {
           traceInputs(_this.renderHierarchy);
         }
@@ -139,20 +158,24 @@ export default  class GraphComponent {
   };
 
   fit = (duration, scale) => {
-    if (duration === void 0) { duration = 500; }
-    if (scale === void 0) { scale = .9; }
+    if (duration === void 0) {
+      duration = 500;
+    }
+    if (scale === void 0) {
+      scale = 0.9;
+    }
     if (this.zoom) {
       this.zoom.fit(duration, scale);
     }
   };
 
-  panToCenterByNodeName =  (nodeName) =>{
+  panToCenterByNodeName = nodeName => {
     var _this = this;
 
     var nodeElement = getNodeElementByName(nodeName);
     if (nodeElement && this.zoom) {
-      requestAnimationFrame(function () {
-        _this.zoom.panToCenter(( (nodeElement)));
+      requestAnimationFrame(function() {
+        _this.zoom.panToCenter(nodeElement);
       });
     }
   };
@@ -160,13 +183,13 @@ export default  class GraphComponent {
   fire = (eventName, event) => {
     this.event.emit({ eventName: eventName, event: event });
     switch (eventName) {
-      case 'node-toggle-expand':
+      case "node-toggle-expand":
         this.nodeToggleExpand(event);
         break;
-      case 'edge-select':
+      case "edge-select":
         this.handleEdgeSelected(event);
         break;
-      case 'node-select':
+      case "node-select":
         this.handleNodeSelected(event);
         break;
       default:
@@ -174,12 +197,11 @@ export default  class GraphComponent {
     }
   };
 
-  handleEdgeSelected = (event) => {
+  handleEdgeSelected = event => {
     // console.log(event);
   };
 
-
-  handleNodeSelected =  (event) => {
+  handleNodeSelected = event => {
     if (!event.name) {
       return;
     }
@@ -193,31 +215,29 @@ export default  class GraphComponent {
     this.traceInputs();
   };
 
-
-  traceInputs =  () => {
+  traceInputs = () => {
     traceInputs(this.renderHierarchy);
   };
 
-  isNodeExpanded = (e) =>  {
-  };
+  isNodeExpanded = e => {};
 
   addNodeGroup = (node, selection) => {
     this._nodeGroupIndex[node] = selection;
   };
 
-  removeNodeGroup = (node) => {
+  removeNodeGroup = node => {
     delete this._nodeGroupIndex[node];
   };
 
-  getNodeGroup = (node) => {
+  getNodeGroup = node => {
     return this._nodeGroupIndex[node];
   };
 
-  getNode = (node) => {
+  getNode = node => {
     return this.renderHierarchy.getRenderNodeByName(node);
   };
 
-/*
+
   removeNodeGroupPortal = (renderNodeInfo) => {
     if (this.portalCacheMap.has(renderNodeInfo)) {
 
@@ -291,24 +311,25 @@ export default  class GraphComponent {
     });
   };
 
-*/
-  isNodeHighlighted = (nodeName) => {
+
+  isNodeHighlighted = nodeName => {
     return nodeName === this.selectedNode;
   };
 
-  isNodeSelected = (nodeName) => {
+  isNodeSelected = nodeName => {
     return nodeName === this.selectedNode;
   };
-
 
   ngOnInit = () => {
     if (this.minmap) {
-      this.minmap.ngOnInit()
+      this.minmap.ngOnInit();
     }
-  }
+  };
   ngAfterContentInit = () => {
     var _this = this;
-    requestAnimationFrame(function () {
+    console.log("ngAfterContentInit");
+    requestAnimationFrame(function() {
+      console.log("after requestAnimationFrame");
       _this.bindZoom();
     });
   };
@@ -318,20 +339,22 @@ export default  class GraphComponent {
       this.zoom.unbind();
     }
     if (this.minmap) {
-      this.minmap.ngOnDestroy()
+      this.minmap.ngOnDestroy();
     }
   };
 
   bindZoom = () => {
     var _this = this;
     this.zoom = new DagreZoom(this.$root, this.$svg);
-    this.zoomInit.emit();
+    this.zoomInit.emit("zoomInit");
     if (this.minmap) {
-      this.zoom.transformChange.subscribe(function (e) { return _this.minmap.zoom(e); });
+      this.zoom.transformChange.subscribe(function(e) {
+        return _this.minmap.zoom(e);
+      });
     }
   };
 
-  updateNodeState = (nodeName) => {
+  updateNodeState = nodeName => {
     if (!nodeName) {
       return;
     }
@@ -344,10 +367,10 @@ export default  class GraphComponent {
     }
   };
 
-  expandParents = (nodeName) => {
+  expandParents = nodeName => {
     var _this = this;
 
-    var node = ( (this.renderHierarchy.hierarchy.node(nodeName)));
+    var node = this.renderHierarchy.hierarchy.node(nodeName);
     if (!node) {
       return;
     }
@@ -363,7 +386,7 @@ export default  class GraphComponent {
 
     var topParentNodeToBeExpanded;
     // 倒序展开
-    _.forEachRight(nodeParents, function (parentName) {
+    _.forEachRight(nodeParents, function(parentName) {
       _this.renderHierarchy.buildSubhierarchy(parentName);
 
       var renderNode = _this.renderHierarchy.getRenderNodeByName(parentName);
@@ -377,7 +400,7 @@ export default  class GraphComponent {
     return topParentNodeToBeExpanded;
   };
 
-  selectedNodeChanged = (nodeName) => {
+  selectedNodeChanged = nodeName => {
     var _this = this;
     if (!nodeName || nodeName === this.selectedNode) {
       return;
@@ -389,7 +412,7 @@ export default  class GraphComponent {
       this.build();
     }
     // buildDef 是异步的
-    setTimeout(function () {
+    setTimeout(function() {
       // 展开后将剧中当前节点，在 node 很多时，250ms 可能不够。
       _this.panToCenterByNodeName(nodeName);
       _this.handleNodeSelected({
@@ -398,21 +421,23 @@ export default  class GraphComponent {
     }, 250);
   };
 
-  expandOrCollapseAll = (expand) => {
+  expandOrCollapseAll = expand => {
     var _this = this;
-    if (expand === void 0) { expand = true; }
+    if (expand === void 0) {
+      expand = true;
+    }
 
     var nodeMap = this.renderHierarchy.hierarchy.getNodeMap();
 
     var groupNodes = [];
 
     var isBuild = false;
-    Object.keys(nodeMap).forEach(function (key) {
+    Object.keys(nodeMap).forEach(function(key) {
       if (nodeMap[key].isGroupNode && nodeMap[key].name !== ROOT_NAME) {
         groupNodes.push(key);
       }
     });
-    groupNodes.forEach(function (name) {
+    groupNodes.forEach(function(name) {
       _this.renderHierarchy.buildSubhierarchy(name);
 
       var renderNode = _this.renderHierarchy.getRenderNodeByName(name);
@@ -428,4 +453,3 @@ export default  class GraphComponent {
     }
   };
 }
-
