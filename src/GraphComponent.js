@@ -10,11 +10,12 @@ import * as d3 from "d3";
 import GraphMinmapComponent from "./GraphMinmapComponent";
 import * as _ from "lodash";
 import { EventEmitter } from "events";
+import FlinkGraphNodePortal from './FlinkGraphNodePortal'
 
 let emitter = new EventEmitter();
 
 export default class GraphComponent {
-  constructor(beforeToggleExpand, event) {
+  constructor(beforeToggleExpand, event,flinkGraph) {
     this.beforeToggleExpand = beforeToggleExpand;
     this.event = event;
     this.zoomInit = emitter;
@@ -57,6 +58,7 @@ export default class GraphComponent {
     this._edgeGroupIndex = [];
     this._nodeGroupIndex = {};
     this.minmap = new GraphMinmapComponent(this.$minmapDiv, this);
+    this.flinkGraph = flinkGraph
   }
 
   baseRoot = () => {
@@ -129,13 +131,13 @@ export default class GraphComponent {
   clean = () => {
     this._nodeGroupIndex = {};
     this._edgeGroupIndex = [];
-    /*
+
     this.portalCacheMap.forEach(function(v) {
       v.host.dispose();
       v.temp = null;
     });
     this.portalCacheMap.clear();
-    */
+
     if (this.sceneGroup) {
       this.sceneGroup.selectAll("*").remove();
     }
@@ -242,36 +244,30 @@ export default class GraphComponent {
     if (this.portalCacheMap.has(renderNodeInfo)) {
 
       var portal = this.portalCacheMap.get(renderNodeInfo);
-      portal.host.detach();
-      portal.temp = null;
-      portal.host = null;
+      portal.ngOnDestroy()
+
       this.portalCacheMap.delete(renderNodeInfo);
     }
   };
 
-  createInjector = (renderNodeInfo) => {
-
-    var injectorTokens = new WeakMap();
-    injectorTokens.set(RENDER_NODE_INFO, renderNodeInfo);
-    injectorTokens.set(RENDER_NODE_INFO_CHANGE, new Subject());
-    injectorTokens.set(NzGraphComponent, this);
-    return new PortalInjector(this.injector, injectorTokens);
-  };
 
 
+
+  //更新节点数据
   emitChangeByNodeInfo = (renderNodeInfo) => {
 
     var portalCache = this.portalCacheMap.get(renderNodeInfo);
     if (portalCache) {
-      (( (portalCache.temp.injector.get(RENDER_NODE_INFO_CHANGE)))).next(renderNodeInfo);
+      portalCache.ngOnDestroy()
     }
+    let nodePortal = new FlinkGraphNodePortal(renderNodeInfo,this.flinkGraph,this)
+    nodePortal.ngOnInit()
+    this.portalCacheMap.set(renderNodeInfo,nodePortal)
   };
 
 
   addNodePortal = (element, renderNodeInfo) => {
-    if (!this.nodePortal) {
-      throw new Error('没有找到 nodePortal');
-    }
+
     // BRIDGE 不需要定义
     if (renderNodeInfo.node.type === NodeType.BRIDGE) {
       return;
@@ -280,35 +276,27 @@ export default class GraphComponent {
 
     var nodeForeignObject = ( (element.select('foreignObject').node()));
 
-    var injector = this.createInjector(renderNodeInfo);
+
 
     var portalCache = this.portalCacheMap.get(renderNodeInfo);
     // 是否被添加过
     if (this.portalCacheMap.has(renderNodeInfo)) {
       // 如果被添加过但是当前容器中却不存在之前的模版则重新添加（因为被收起或其他原因被移除）
-      if (!(( (element.node()))).contains(portalCache.host.outletElement)) {
-        portalCache.host.dispose();
-        portalCache.host = null;
-        portalCache.temp = null;
+      if (!(( (element.node()))).contains(portalCache.template[0])) {
+        portalCache.ngOnDestroy()
         this.portalCacheMap.delete(renderNodeInfo);
       }
       else {
-        (( (portalCache.temp.injector.get(RENDER_NODE_INFO_CHANGE)))).next(renderNodeInfo);
+        nodeForeignObject.innerHtml = portalCache.template[0]
         return;
       }
     }
 
-    var nodePortalHost = new DomPortalHost(nodeForeignObject, this.componentFactoryResolver, this.appRef, injector);
+    let nodePortal = new FlinkGraphNodePortal(renderNodeInfo,this.flinkGraph,this)
+    nodePortal.ngOnInit()
+    nodeForeignObject.innerHtml = nodePortal.template[0]
 
-    var portal = new ComponentPortal(this.nodePortal, this.viewContainerRef, injector);
-
-    var componentInstance = nodePortalHost.attach(portal);
-    componentInstance.changeDetectorRef.detectChanges();
-    componentInstance = null;
-    this.portalCacheMap.set(renderNodeInfo, {
-      host: nodePortalHost,
-      temp: portal
-    });
+    this.portalCacheMap.set(renderNodeInfo, nodePortal);
   };
 
 

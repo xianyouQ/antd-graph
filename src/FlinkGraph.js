@@ -141,6 +141,101 @@ export default class FlinkGraph extends Component {
       .call(this.graphComponent.zoom.zoom.transform, transform);
     this.transformCache = null;
   };
+  getVerticesDetail = (nodeRenderInfo,force = false)  => {
+    if (this.verticesDetailsCache.has(nodeRenderInfo) && !force) {
+      return this.verticesDetailsCache.get(nodeRenderInfo);
+    }
+    const vertices = this.sourceData.verticesDetail.vertices.find(v => v.id === nodeRenderInfo.node.name);
+    if (!vertices) {
+      return null;
+    }
+
+    let displayName = '';
+    let inQueue = null;
+    let outQueue = null;
+    if (vertices.name) {
+      displayName = vertices.name.length > 125 ? `${vertices.name.substring(0, 125)}...` : vertices.name;
+    } else {
+      displayName = vertices.name;
+    }
+
+    if (vertices.metrics && Number.isFinite(vertices.metrics[ 'buffers-in-pool-usage-max' ])) {
+      inQueue = vertices.metrics[ 'buffers-in-pool-usage-max' ] === -1
+        ? null
+        : vertices.metrics[ 'buffers-in-pool-usage-max' ];
+    } else {
+      inQueue = Math.max(
+        ...vertices.subtask_metrics
+          .map(m => this.parseFloat(m[ 'buffers.inPoolUsage' ]))
+      );
+    }
+
+    if (vertices.metrics && Number.isFinite(vertices.metrics[ 'buffers-out-pool-usage-max' ])) {
+      outQueue = vertices.metrics[ 'buffers-out-pool-usage-max'] === -1
+        ? null
+        : vertices.metrics[ 'buffers-out-pool-usage-max' ];
+    } else {
+      outQueue = Math.max(
+        ...vertices.subtask_metrics
+          .map(m => this.parseFloat(m[ 'buffers.outPoolUsage' ]))
+      );
+    }
+
+    this.verticesDetailsCache.set(nodeRenderInfo, {
+      displayName,
+      name       : vertices.name,
+      inQueue    : Number.isFinite(inQueue) ? inQueue : null,
+      outQueue   : Number.isFinite(outQueue) ? outQueue : null,
+      parallelism: this.parseFloat(vertices.parallelism) || vertices.subtask_metrics.length
+    });
+
+    return this.verticesDetailsCache.get(nodeRenderInfo);
+  }
+
+  getOperatorsDetail = (nodeRenderInfo, force = false) => {
+    if (this.operatorsDetailsCache.has(nodeRenderInfo) && !force) {
+      return this.operatorsDetailsCache.get(nodeRenderInfo);
+    }
+    const operator = this.sourceData.verticesDetail.operators
+      .find(o => o.operator_id === nodeRenderInfo.node.attr[ 'operator_id' ]);
+
+    if (!operator) {
+      return null;
+    }
+
+    let displayName = '';
+    if (operator.name.length > opNameMaxLength) {
+      displayName = `${operator.name.substring(0, opNameMaxLength)}...`;
+    } else {
+      displayName = operator.name;
+    }
+
+    const vertices = this.sourceData.verticesDetail.vertices.find(v => v.id === operator.vertex_id);
+
+    const numRecordsIn = this.getMetric(vertices.subtask_metrics, operator, 'numRecordsInOperator', MetricsGetStrategy.SUM);
+    const numRecordsOut = this.getMetric(vertices.subtask_metrics, operator, 'numRecordsOutOperator', MetricsGetStrategy.SUM);
+
+    const abnormal = !/^Sink:\s.+$/.test(operator.name)
+      && Number.isFinite(numRecordsIn)
+      && Number.isFinite(numRecordsOut)
+      && numRecordsIn > 0
+      && numRecordsOut <= 0;
+
+    this.operatorsDetailsCache.set(nodeRenderInfo, {
+        abnormal,
+        displayName,
+        name         : operator.name,
+        numRecordsIn : Number.isFinite(numRecordsIn) ? `${numRecordsIn}` : ' - ',
+        numRecordsOut: Number.isFinite(numRecordsOut) ? `${numRecordsOut}` : ' - '
+      }
+    );
+
+    return this.operatorsDetailsCache.get(nodeRenderInfo);
+  }
+
+  getNodesItemCorrect = (name) => {
+    return this.sourceData.plan.nodes.find(n => n.id === name);
+  }
   parseFloat(value) {
     if (typeof value === "number") {
       return value;

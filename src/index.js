@@ -1,11 +1,7 @@
 import React from 'react'
 import { render } from 'react-dom'
-import { createStore } from 'redux'
-import { Provider } from 'react-redux'
 import FlinkGraph from './FlinkGraph'
-import rootReducer from './reducers'
 
-const store = createStore(rootReducer)
 const jobDetailCorrect = {
     "verticesDetail": {
     "vertices":[
@@ -998,8 +994,6 @@ const jobDetailCorrect = {
     }
 }
 render(
-  <Provider store={store}>
-    <FlinkGraph jobDetailCorrect={jobDetailCorrect}/>
-  </Provider>,
+    <FlinkGraph jobDetailCorrect={jobDetailCorrect}/>,
   document.getElementById('root')
 )
