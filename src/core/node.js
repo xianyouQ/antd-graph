@@ -390,7 +390,8 @@ function subscenePosition(nodeGroup, d) {
  * @param {?} renderGraphInfo
  * @return {?}
  */
-export function traceInputs(renderGraphInfo) {
+export function traceInputs(container,renderGraphInfo) {
+    let select
     d3.selectAll('.input-highlight').classed('input-highlight', false);
     d3.selectAll('.start-output-edge').classed('start-output-edge', false);
     d3.selectAll('.output-edge-highlight').classed('output-edge-highlight', false);
@@ -486,6 +487,7 @@ export function traceFirstOutputsOfOpNode(renderGraphInfo, node, edgesSelector) 
  * @return {?}
  */
 export function _getAllContainedOpNodes(nodeName, renderGraphInfo) {
+    console.log(renderGraphInfo)
     /** @type {?} */
     var opNodes = [];
     // Get current node.

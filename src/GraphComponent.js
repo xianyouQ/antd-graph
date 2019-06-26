@@ -10,60 +10,25 @@ import * as d3 from "d3";
 import GraphMinmapComponent from "./GraphMinmapComponent";
 import * as _ from "lodash";
 import { EventEmitter } from "events";
-import FlinkGraphNodePortal from './FlinkGraphNodePortal'
-
+import FlinkGraphNodePortal from "./FlinkGraphNodePortal";
 let emitter = new EventEmitter();
-
+import './res/styles/flinkGraph.css'
 export default class GraphComponent {
-  constructor(beforeToggleExpand, event,flinkGraph) {
+  constructor($root,$svg,$minmapDiv,beforeToggleExpand, event, flinkGraph) {
     this.beforeToggleExpand = beforeToggleExpand;
     this.event = event;
     this.zoomInit = emitter;
-    this.$root = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    this.$root.setAttribute("id", "svg");
-    this.$svg = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    this.$svg.setAttribute("id", "groot");
-    let reactNode = document.createElement("rect");
-    reactNode.classList.add("graph-make");
-    reactNode.classList.add("nz-graph-make");
-    reactNode.setAttribute("width", "10000");
-    reactNode.setAttribute("height", "10000");
-    this.$root.appendChild(reactNode);
-    this.$root.appendChild(this.$svg);
-    let minzoomSvg = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "svg"
-    );
+    this.$root = $root;
+    this.$svg = $svg
 
-    let minzooRect = document.createElement("rect");
-    minzoomSvg.appendChild(minzooRect);
-    this.rootEle = document.createElement("div");
-    let firstCanvas = document.createElement("canvas");
-    firstCanvas.classList.add("first");
-    let secondCanvas = document.createElement("canvas");
-    secondCanvas.classList.add("second");
-    let downloadCanvas = document.createElement("canvas");
-    downloadCanvas.classList.add("download");
-    this.$minmapDiv = document.createElement("div");
-    this.$minmapDiv.appendChild(minzoomSvg);
-    this.$minmapDiv.appendChild(minzooRect);
-
-    this.$minmapDiv.appendChild(firstCanvas);
-    this.$minmapDiv.appendChild(secondCanvas);
-    this.$minmapDiv.appendChild(downloadCanvas);
-    this.rootEle.appendChild(this.$root);
-    this.rootEle.appendChild(this.$minmapDiv);
-
+    this.$minmapDiv = $minmapDiv
     this.portalCacheMap = new Map();
     this._edgeGroupIndex = [];
     this._nodeGroupIndex = {};
-    this.minmap = new GraphMinmapComponent(this.$minmapDiv, this);
-    this.flinkGraph = flinkGraph
+    this.flinkGraph = flinkGraph;
   }
 
-  baseRoot = () => {
-    return this.rootEle;
-  };
+
   buildGraph = graphDef => {
     var _this = this;
     // 构建 GraphDef
@@ -133,8 +98,7 @@ export default class GraphComponent {
     this._edgeGroupIndex = [];
 
     this.portalCacheMap.forEach(function(v) {
-      v.host.dispose();
-      v.temp = null;
+      v.nodePortal.ngOnDestroy()
     });
     this.portalCacheMap.clear();
 
@@ -150,7 +114,7 @@ export default class GraphComponent {
       _this.buildGroupScene(_this.renderHierarchy.root);
       setTimeout(function() {
         if (_this.selectedNode) {
-          traceInputs(_this.renderHierarchy);
+          traceInputs(this.$root,_this.renderHierarchy);
         }
         if (_this.minmap) {
           _this.minmap.update();
@@ -218,7 +182,7 @@ export default class GraphComponent {
   };
 
   traceInputs = () => {
-    traceInputs(this.renderHierarchy);
+    traceInputs(this.$root,this.renderHierarchy);
   };
 
   isNodeExpanded = e => {};
@@ -239,66 +203,65 @@ export default class GraphComponent {
     return this.renderHierarchy.getRenderNodeByName(node);
   };
 
-
-  removeNodeGroupPortal = (renderNodeInfo) => {
+  removeNodeGroupPortal = renderNodeInfo => {
     if (this.portalCacheMap.has(renderNodeInfo)) {
-
       var portal = this.portalCacheMap.get(renderNodeInfo);
-      portal.ngOnDestroy()
+      portal.nodePortal.ngOnDestroy();
 
       this.portalCacheMap.delete(renderNodeInfo);
     }
   };
 
-
-
-
   //更新节点数据
-  emitChangeByNodeInfo = (renderNodeInfo) => {
-
+  emitChangeByNodeInfo = renderNodeInfo => {
     var portalCache = this.portalCacheMap.get(renderNodeInfo);
     if (portalCache) {
-      portalCache.ngOnDestroy()
+      portalCache.nodePortal.ngOnDestroy();
+      let nodePortal = new FlinkGraphNodePortal(
+        renderNodeInfo,
+        this.flinkGraph,
+        this
+      );
+      nodePortal.ngOnInit();
+      portalCache.hostObject.append(nodePortal)
+      let portal = {nodePortal:nodePortal ,hostObject: portalCache.hostObject}
+      this.portalCacheMap.set(renderNodeInfo, portal);
     }
-    let nodePortal = new FlinkGraphNodePortal(renderNodeInfo,this.flinkGraph,this)
-    nodePortal.ngOnInit()
-    this.portalCacheMap.set(renderNodeInfo,nodePortal)
   };
 
-
   addNodePortal = (element, renderNodeInfo) => {
-
+    console.log("addNodePortal");
     // BRIDGE 不需要定义
     if (renderNodeInfo.node.type === NodeType.BRIDGE) {
       return;
     }
     // 嵌入模版的容器
 
-    var nodeForeignObject = ( (element.select('foreignObject').node()));
-
-
+    var nodeForeignObject = element.select("foreignObject").node();
 
     var portalCache = this.portalCacheMap.get(renderNodeInfo);
     // 是否被添加过
     if (this.portalCacheMap.has(renderNodeInfo)) {
       // 如果被添加过但是当前容器中却不存在之前的模版则重新添加（因为被收起或其他原因被移除）
-      if (!(( (element.node()))).contains(portalCache.template[0])) {
-        portalCache.ngOnDestroy()
+      if (!element.node().contains(portalCache.nodePortal.template[0])) {
+        portalCache.nodePortal.ngOnDestroy();
         this.portalCacheMap.delete(renderNodeInfo);
-      }
-      else {
-        nodeForeignObject.innerHtml = portalCache.template[0]
+      } else {
+        nodeForeignObject.append(portalCache.nodePortal.template[0]);
         return;
       }
     }
 
-    let nodePortal = new FlinkGraphNodePortal(renderNodeInfo,this.flinkGraph,this)
-    nodePortal.ngOnInit()
-    nodeForeignObject.innerHtml = nodePortal.template[0]
-
-    this.portalCacheMap.set(renderNodeInfo, nodePortal);
+    let nodePortal = new FlinkGraphNodePortal(
+      renderNodeInfo,
+      this.flinkGraph,
+      this
+    );
+    nodePortal.ngOnInit();
+    nodeForeignObject.append(nodePortal.template[0]);
+    let portal = {nodePortal:nodePortal ,hostObject: nodeForeignObject}
+    this.portalCacheMap.set(renderNodeInfo, portal);
   };
-
 
   isNodeHighlighted = nodeName => {
     return nodeName === this.selectedNode;
@@ -309,9 +272,10 @@ export default class GraphComponent {
   };
 
   ngOnInit = () => {
-    if (this.minmap) {
-      this.minmap.ngOnInit();
-    }
+    this.minmap = new GraphMinmapComponent(this.$minmapDiv, this);
+
+    this.minmap.ngOnInit();
+
   };
   ngAfterContentInit = () => {
     var _this = this;
@@ -334,6 +298,7 @@ export default class GraphComponent {
   bindZoom = () => {
     var _this = this;
     this.zoom = new DagreZoom(this.$root, this.$svg);
+    console.log("emit zoomInit");
     this.zoomInit.emit("zoomInit");
     if (this.minmap) {
       this.zoom.transformChange.subscribe(function(e) {

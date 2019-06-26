@@ -100,20 +100,18 @@ export function buildGroupScene(
   sceneElement,
   sceneClass
 ) {
-  console.log("begin buildGroup Scene");
   sceneClass = Class.Scene.GROUP;
 
   if (sceneClass == null) {
     sceneClass = Class.Scene.GROUP;
-   }
-  console.log(sceneClass);
+  }
   var isNewSceneGroup = selectChild(container, "g", sceneClass).empty();
   var sceneGroup = selectOrCreateChild(container, "g", [
     sceneClass,
     "nz-graph"
   ]);
+
   var coreGroup = selectOrCreateChild(sceneGroup, "g", Class.Scene.CORE);
-  console.log(container);
 
   var coreNodes = _.reduce(
     renderNode.coreGraph.nodes(),
@@ -126,21 +124,18 @@ export function buildGroupScene(
     },
     []
   );
-  console.log("begin buildGroup Scene1");
 
-  console.log(coreNodes);
   if (renderNode.node.type === NodeType.SERIES) {
     // For series, we want the first item on top, so reverse the array so
     // the first item in the series becomes last item in the top, and thus
     // is rendered on the top.
     coreNodes.reverse();
   }
-  console.log("before buildGroup Edge");
   console.log(container);
   // requestAnimationFrame 避免多节点时掉帧
   // Create the layer of edges for this scene (paths).
   requestAnimationFrame(function() {
-    buildGroupEdge(coreGroup, renderNode.coreGraph, sceneElement);
+    buildGroupEdge(container,coreGroup, renderNode.coreGraph, sceneElement);
   });
   // Create the layer of nodes for this scene (ellipses, rects etc).
   requestAnimationFrame(function() {
@@ -178,7 +173,7 @@ export function selectChild(container, tagName, className) {
           /** @type {?} */
           var hasAllClasses = true;
           try {
-            for (var j = 0; j < className.length; i++) {
+            for (var j = 0; j < className.length; j++) {
               var className_1 = className[j];
               hasAllClasses =
                 hasAllClasses && child.classList.contains(className_1);
@@ -208,15 +203,19 @@ export function selectChild(container, tagName, className) {
  */
 export function selectOrCreateChild(container, tagName, className, before) {
   /** @type {?} */
+
   var child = selectChild(container, tagName, className);
   if (!child.empty()) {
     return child;
   }
   /** @type {?} */
+
   var newElement = document.createElementNS(
     "http://www.w3.org/2000/svg",
     tagName
   );
+
+  newElement.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   if (className instanceof Array) {
     for (var i = 0; i < className.length; i++) {
       newElement.classList.add(className[i]);
@@ -231,6 +230,7 @@ export function selectOrCreateChild(container, tagName, className, before) {
     // otherwise, append
     container.node().appendChild(newElement);
   }
+  console.log(container)
   return (
     select(newElement)
     // need to bind data to emulate d3_selection.append

@@ -1,6 +1,6 @@
 import { take } from "rxjs/operators";
 import { PARAMS as LAYOUT_PARAMS } from "./core/layout";
-import { Minimap } from "./core/minimap";
+import Minimap from "./core/minimap";
 
 export default class GraphMinmapComponent {
   constructor(hostRef, graphComponent) {
@@ -14,16 +14,18 @@ export default class GraphMinmapComponent {
   ngOnInit = () => {
     var _this = this;
     this.hostElement = this.hostRef;
-    this.zoomInit$ = this.graphComponent.zoomInit.addListener(
-      "zoomInit",
-      (msg, data) => {
-        console.log("recivice msg " + msg);
-        _this.init();
-      }
-    ); //注册事件
+    console.log("init minMap");
+    this.zoomInit$ = (msg, data) => {
+      console.log("recivice msg " + data);
+      _this.init();
+    };
+    this.graphComponent.zoomInit.addListener("zoomInit", this.zoomInit$); //注册事件
   };
 
   init = () => {
+    if (this.graphComponent.zoom == null) {
+      return;
+    }
     this.minimap = new Minimap(
       this.graphComponent.$svg,
       this.graphComponent.$root,
@@ -47,6 +49,6 @@ export default class GraphMinmapComponent {
   };
 
   ngOnDestroy = () => {
-    this.graphComponent.zoomInit.removeListener(this.zoomInit$); //取消事件
+    this.graphComponent.zoomInit.removeListener("zoomInit", this.zoomInit$); //取消事件
   };
 }
