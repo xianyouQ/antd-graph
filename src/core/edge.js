@@ -70,7 +70,7 @@ export var interpolate = d3
  * @param {?} sceneElement
  * @return {?}
  */
-export function buildGroupEdge(container,sceneGroup, graph, sceneElement) {
+export function buildGroupEdge(sceneGroup, graph, sceneElement) {
   /** @type {?} */
   var edges = [];
   edges = _.reduce(
@@ -88,6 +88,11 @@ export function buildGroupEdge(container,sceneGroup, graph, sceneElement) {
     edges
   );
   /** @type {?} */
+  console.log("edges");
+  console.log(edges);
+
+  console.log("sceneGroup");
+  console.log(sceneGroup);
   var container = selectOrCreateChild(sceneGroup, "g", Class.Edge.CONTAINER);
   // Select all children and join with data.
   // (Note that all children of g.edges are g.edge)
@@ -98,7 +103,8 @@ export function buildGroupEdge(container,sceneGroup, graph, sceneElement) {
     })
     .data(edges, getEdgeKey);
 
-  console.log(edgeGroups)
+  console.log("edgeGroups");
+  console.log(edgeGroups);
   // Make edges a group to support rendering multiple lines for metaedge
   edgeGroups
     .enter()
@@ -107,6 +113,7 @@ export function buildGroupEdge(container,sceneGroup, graph, sceneElement) {
     .attr("data-edge", getEdgeKey)
     .each(function(d) {
       /** @type {?} */
+      console.log(d);
       var edgeGroup = select(this);
       d.label.edgeGroup = edgeGroup;
       // index node group for quick highlighting
@@ -116,8 +123,7 @@ export function buildGroupEdge(container,sceneGroup, graph, sceneElement) {
         edgeGroup.on("click", function(_d) {
           // Stop this event's propagation so that it isn't also considered
           // a graph-select.
-          d3 /** @type {?} */.event
-            .stopPropagation();
+          d3.event.stopPropagation();
           sceneElement.fire("edge-select", {
             edgeData: _d,
             edgeGroup: edgeGroup
@@ -129,7 +135,7 @@ export function buildGroupEdge(container,sceneGroup, graph, sceneElement) {
       appendEdge(edgeGroup, d, sceneElement);
     })
     .merge(edgeGroups)
-    .each(d=>position(container,d))
+    .each(position)
     .each(function(d) {
       stylize(select(this), d);
     });
@@ -236,11 +242,16 @@ export function appendEdge(edgeGroup, d, graphComponent, edgeClass) {
  * @param {?} d
  * @return {?}
  */
-function position(container,d) {
+function position(d) {
+  console.log("position");
+  console.log(d);
+
+  var path = d3.select(this).select("path.edgeline");
+  console.log(path);
   d3.select(this)
     .select("path." + Class.Edge.LINE)
     .transition()
-    .attrTween("d", /** @type {?} */ ((d, i, a) => getEdgePathInterpolator(container,d,i.a)));
+    .attrTween("d", getEdgePathInterpolator);
 }
 /**
  * Creates the label for the given metaedge. If the metaedge consists
@@ -280,7 +291,7 @@ export function getLabelForBaseEdge(baseEdge, renderInfo) {
  * @param {?} a
  * @return {?}
  */
-function getEdgePathInterpolator(container,d, i, a) {
+function getEdgePathInterpolator(d, i, a) {
   console.log("getEdgePathInterpolator");
 
   /** @type {?} */
@@ -291,12 +302,12 @@ function getEdgePathInterpolator(container,d, i, a) {
   var points = renderMetaedgeInfo.points;
   // Adjust the path so that start/end markers point to the end
   // of the path.
-  var root = d3.select(container)
+  var root = d3.select(this);
   if (d.label.startMarkerId) {
     console.log(root.select("#" + d.label.startMarkerId));
     points = adjustPathPointsForMarker(
       points,
-      root.select("#" + d.label.startMarkerId),
+      d3.select("#" + d.label.startMarkerId),
       true
     );
   }
@@ -304,7 +315,7 @@ function getEdgePathInterpolator(container,d, i, a) {
     console.log(root.select("#" + d.label.endMarkerId));
     points = adjustPathPointsForMarker(
       points,
-      root.select("#" + d.label.endMarkerId),
+      d3.select("#" + d.label.endMarkerId),
       false
     );
   }

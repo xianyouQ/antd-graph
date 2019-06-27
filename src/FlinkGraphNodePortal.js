@@ -105,56 +105,59 @@ export default class FlinkGraphNodePortal {
   };
   renderResult = () => {
     if (!this.nodeInfo.node.isGroupNode) {
-      let template = $(this.NonGroupnodeTemplate);
+      if (!this.template) {
+        this.template = $(this.NonGroupnodeTemplate);
+      }
       if (this.operatorsDetail) {
         if (this.operatorsDetail.abnormal) {
           this.template.find("div.op-wrapper").addClass("danger-node");
         }
-        template
+        this.template
           .find("span.attr-name:eq(0)")
           .after(`: ${this.operatorsDetail.numRecordsIn}`);
-        template
+        this.template
           .find("span.attr-name:eq(1)")
           .after(`: ${this.operatorsDetail.numRecordsOut}`);
-        template.find("div.node-name p").html(this.operatorsDetail.displayName);
+        this.template.find("div.node-name p").html(this.operatorsDetail.displayName);
       }
-      this.template = template;
     } else {
-      let template = $(this.groupnodeTemplate);
+      if (!this.template) {
+        this.template = $(this.groupnodeTemplate);
+      }
       if (this.verticesDetail) {
         if (
           this.verticesDetail.inQueue >= 1 ||
           this.verticesDetail.outQueue >= 1
         ) {
-          template.find("div.group-wrapper").addClass("danger-node");
+          this.template.find("div.group-wrapper").addClass("danger-node");
         }
         if (this.nodeInfo.expanded) {
-          template.find("div.group-wrapper").addClass("expanded");
-          template.find("span.vertex").hide();
+          this.template.find("div.group-wrapper").addClass("expanded");
+          this.template.find("span.vertex").hide();
 
-          template
+          this.template
             .find("a.toggle-expand")
             .html(`<i class="anticon anticon-minus"></i>`);
         } else {
-          template.find("span.parallel").hide();
-          template
+          this.template.find("span.parallel").hide();
+          this.template
             .find("a.toggle-expand")
             .html(`<i class="anticon anticon-plus"></i>`);
         }
         if (this.canToggleExpand) {
-          template
+          this.template
             .find("span.vertex")
             .text(`Vertex(${this.nodeInfo.node.cardinality} Operators)`);
         } else {
-          template.find("span.vertex").text(`Vertex`);
-          template.find("a.toggle-expand").hide();
+          this.template.find("span.vertex").text(`Vertex`);
+          this.template.find("a.toggle-expand").hide();
         }
-        template.find("h5.sub-title").text(this.verticesDetail.displayName);
+        this.template.find("h5.sub-title").text(this.verticesDetail.displayName);
 
-        template
+        this.template
           .find("a.toggle-expand")
           .click(event => this.toggleExpand(event));
-        template
+        this.template
           .find("span.parallel")
           .html(
             `Parallel: ${
@@ -165,14 +168,14 @@ export default class FlinkGraphNodePortal {
               this.verticesDetail.outQueue
               }%}`
           );
-        template
+        this.template
           .find("div.attr-wrap p.attr:eq(0)")
           .html(
             `<span class="attr-name">Parallelism</span>: ${
               this.verticesDetail.parallelism
               }`
           );
-        template
+        this.template
           .find("div.attr-wrap p.attr:eq(1)")
           .html(
             `<span class="attr-name">In Queue</span>: ${
@@ -180,9 +183,9 @@ export default class FlinkGraphNodePortal {
               }`
           );
         if (this.verticesDetail.inQueue >= 1) {
-          template.find("div.attr-wrap p.attr:eq(1)").addClass("danger-attr");
+          this.template.find("div.attr-wrap p.attr:eq(1)").addClass("danger-attr");
         }
-        template
+        this.template
           .find("div.attr-wrap p.attr:eq(2)")
           .html(
             `<span class="attr-name">Out Queue</span>: ${
@@ -190,10 +193,9 @@ export default class FlinkGraphNodePortal {
               }`
           );
         if (this.verticesDetail.outQueue >= 1) {
-          template.find("div.attr-wrap p.attr:eq(2)").addClass("danger-attr");
+          this.template.find("div.attr-wrap p.attr:eq(2)").addClass("danger-attr");
         }
       }
-      this.template = template;
     }
   };
 }

@@ -1,11 +1,11 @@
-import React, { PropTypes, Component } from "react";
+import React, {  Component } from "react";
+import PropTypes from 'prop-types'
 import { message } from "antd";
 import GraphComponent from "./GraphComponent";
 import * as d3 from "d3";
 import { EventEmitter } from "events";
 import cs from "classnames";
-import ReactDOM from 'react-dom'
-
+import ReactDOM from "react-dom";
 
 const opNameMaxLength = 512;
 
@@ -14,13 +14,53 @@ const graphTimeoutRange = d3
   .domain([50, 100, 300, 500])
   .range([250, 500, 800, 1000])
   .clamp(true);
+const getLabelForEdge = (metaedge, renderInfo) => {
+  if (Object.keys(renderInfo.getSubhierarchy()).length === 1) {
+    return metaedge.baseEdgeList[0]["partitioner"] || null;
+  }
+  return null;
+};
 
+const edgesLayoutFunction = (graph, params) => {
+  graph.edges().forEach(e => {
+    const edge = graph.edge(e);
+    if (!edge.structural) {
+      const maxLabelLength = Math.max(
+        edge.metaedge.baseEdgeList.map(_e => (_e.partitioner || "").length)
+      );
+      const rankdir = graph.graph().rankdir;
+      const rankSep = edge.metaedge.inbound
+        ? graph.graph().ranksep
+        : Math.max(params.rankSep, maxLabelLength * 5);
+      if (["RL", "LR"].indexOf(rankdir) !== -1) {
+        edge.width = rankSep;
+      } else {
+        edge.height = rankSep;
+      }
+    }
+  });
+};
+
+const opNodeHeightFunction = renderNodeInfo => {
+  const heightRange = d3
+    .scaleLinear()
+    .domain([1, 2, 3])
+    .range([85, 100, 115]);
+  const nameLength = Math.min(
+    opNameMaxLength,
+    renderNodeInfo.node.attr["name"].length
+  );
+  return heightRange(Math.ceil((nameLength + 3) / 28));
+};
 const canToggleExpand = renderNodeInfo => {
   const children = renderNodeInfo.node.getChildren();
   return !(children.length === 1 && children[0].attr["virtual"]);
 };
 const MetricsGetStrategy = {
-  MAX: 0, MIN: 1, SUM: 2, FIRST: 3
+  MAX: 0,
+  MIN: 1,
+  SUM: 2,
+  FIRST: 3
 };
 let emitter = new EventEmitter();
 
@@ -30,16 +70,26 @@ export default class FlinkGraph extends Component {
 
     this.state = {
       jid: null
-    }
+    };
     this.transformCache = null;
     this.verticesDetailsCache = new Map();
     this.operatorsDetailsCache = new Map();
   }
   componentDidMount() {
-    let $root = ReactDOM.findDOMNode(this.refs.$root)
-    let $svg = ReactDOM.findDOMNode(this.refs.$svg)
-    let $minmapDiv = ReactDOM.findDOMNode(this.refs.$minmapDiv)
-    this.graphComponent = new GraphComponent($root,$svg,$minmapDiv,canToggleExpand, emitter, this);
+    let $root = ReactDOM.findDOMNode(this.refs.$root);
+    let $svg = ReactDOM.findDOMNode(this.refs.$svg);
+    let $minmapDiv = ReactDOM.findDOMNode(this.refs.$minmapDiv);
+    this.graphComponent = new GraphComponent(
+      $root,
+      $svg,
+      $minmapDiv,
+      canToggleExpand,
+      emitter,
+      this,
+      getLabelForEdge,
+      edgesLayoutFunction,
+      opNodeHeightFunction
+    );
     this.graphComponent.ngOnInit();
     this.itemChange = (msg, data) => console.log(msg);
     emitter.addListener("node-toggle-expand", this.itemChange); //注册事件
@@ -54,7 +104,7 @@ export default class FlinkGraph extends Component {
   }
 
   componentWillReceiveProps(newProps) {
-    this.setTransformCache()
+    this.setTransformCache();
     const { jobDetailCorrect } = newProps;
     if (jobDetailCorrect != null && this.graphComponent != null) {
       if (this.state.jid == jobDetailCorrect.plan.jid) {
@@ -67,9 +117,9 @@ export default class FlinkGraph extends Component {
 
   initGraph = data => {
     if (data == null) {
-      return
+      return;
     }
-    this.setState({...this.state,jid: data.plan.jid})
+    this.setState({ ...this.state, jid: data.plan.jid });
     const graphDef = this.parseGraphData(data);
     this.cleanDetailCache();
     this.graphComponent
@@ -95,7 +145,11 @@ export default class FlinkGraph extends Component {
     this.operatorsDetailsCache.clear();
   };
   setTransformCache() {
-    if (this.transformCache || !this.graphComponent.zoom|| !this.graphComponent.zoom.zoomTransform) {
+    if (
+      this.transformCache ||
+      !this.graphComponent.zoom ||
+      !this.graphComponent.zoom.zoomTransform
+    ) {
       return;
     }
     const { x, y, k } = this.graphComponent.zoom.zoomTransform;
@@ -221,8 +275,7 @@ export default class FlinkGraph extends Component {
     return this.verticesDetailsCache.get(nodeRenderInfo);
   };
 
-
-  updateData = (data) => {
+  updateData = data => {
     this.sourceData = data;
     this.operatorsDetailsCache.forEach((v, k) => {
       Object.assign(v, this.getOperatorsDetail(k, true));
@@ -232,7 +285,7 @@ export default class FlinkGraph extends Component {
       Object.assign(v, this.getVerticesDetail(k, true));
       this.graphComponent.emitChangeByNodeInfo(k);
     });
-  }
+  };
   getOperatorsDetail = (nodeRenderInfo, force = false) => {
     if (this.operatorsDetailsCache.has(nodeRenderInfo) && !force) {
       return this.operatorsDetailsCache.get(nodeRenderInfo);
@@ -311,28 +364,29 @@ export default class FlinkGraph extends Component {
       this.graphComponent.fit();
     }, 300);
   };
-  getMetric = (metrics,operator,metricKey,strategy) => {
-    const canUseId = metrics.some(m => !!m[ `${operator.operator_id}.${metricKey}` ]);
-    const spliceKey = `${canUseId ? operator.operator_id : operator.metric_name}.${metricKey}`;
+  getMetric = (metrics, operator, metricKey, strategy) => {
+    const canUseId = metrics.some(
+      m => !!m[`${operator.operator_id}.${metricKey}`]
+    );
+    const spliceKey = `${
+      canUseId ? operator.operator_id : operator.metric_name
+      }.${metricKey}`;
     switch (strategy) {
       case MetricsGetStrategy.MAX:
-        return Math.max(
-          ...metrics.map(m => this.parseFloat(m[ spliceKey ]))
-        );
+        return Math.max(...metrics.map(m => this.parseFloat(m[spliceKey])));
       case MetricsGetStrategy.MIN:
-        return Math.min(
-          ...metrics.map(m => this.parseFloat(m[ spliceKey ]))
-        );
+        return Math.min(...metrics.map(m => this.parseFloat(m[spliceKey])));
       case MetricsGetStrategy.SUM:
-        return metrics.map(m => this.parseFloat(m[ spliceKey ])).reduce((a, b) => a + b, 0);
+        return metrics
+          .map(m => this.parseFloat(m[spliceKey]))
+          .reduce((a, b) => a + b, 0);
       case MetricsGetStrategy.FIRST:
-        return this.parseFloat(metrics[ 0 ][ spliceKey ]);
+        return this.parseFloat(metrics[0][spliceKey]);
       default:
         return null;
     }
-  }
+  };
   render() {
-
     return (
       <div className="nz-graph">
         <div className={cs({ graphAction: true, hied: this.selectedNode })}>
@@ -342,135 +396,307 @@ export default class FlinkGraph extends Component {
           <span className="ant-divider" />
           <a onClick={() => this.collapseAll()}>Collapse All</a>
         </div>
-          <svg id="svg" ref="$svg">
-            <defs>
-              <filter id="shadow"  x="-50%" y="-50%" width="200%" height="200%">
-                <feDropShadow dx="0" dy="0" stdDeviation="2"/>
-              </filter>
-              <path id="reference-arrowhead-path" d="M 0,0 L 10,5 L 0,10 C 3,7 3,3 0,0"/>
-              <marker className="reference-arrowhead" id="reference-arrowhead-small" viewBox="0 0 10 10" markerWidth="5" markerHeight="5"
-                      refX="2" refY="5" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
-                <use xlinkHref="#reference-arrowhead-path" />
-              </marker>
-              <marker className="reference-arrowhead" id="reference-arrowhead-medium" viewBox="0 0 10 10" markerWidth="13" markerHeight="13"
-                      refX="2" refY="5" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
-                <use xlinkHref="#reference-arrowhead-path" />
-              </marker>
-              <marker className="reference-arrowhead" id="reference-arrowhead-large" viewBox="0 0 10 10" markerWidth="16" markerHeight="16"
-                      refX="2" refY="5" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
-                <use xlinkHref="#reference-arrowhead-path" />
-              </marker>
-              <marker className="reference-arrowhead" id="reference-arrowhead-xlarge" viewBox="0 0 10 10" markerWidth="20" markerHeight="20"
-                      refX="2" refY="5" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
-                <use xlinkHref="#reference-arrowhead-path" />
-              </marker>
+        <svg id="svg" ref="$svg">
+          <defs>
+            <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="0" stdDeviation="2" />
+            </filter>
+            <path
+              id="reference-arrowhead-path"
+              d="M 0,0 L 10,5 L 0,10 C 3,7 3,3 0,0"
+            />
+            <marker
+              className="reference-arrowhead"
+              id="reference-arrowhead-small"
+              viewBox="0 0 10 10"
+              markerWidth="5"
+              markerHeight="5"
+              refX="2"
+              refY="5"
+              orient="auto-start-reverse"
+              markerUnits="userSpaceOnUse"
+            >
+              <use xlinkHref="#reference-arrowhead-path" />
+            </marker>
+            <marker
+              className="reference-arrowhead"
+              id="reference-arrowhead-medium"
+              viewBox="0 0 10 10"
+              markerWidth="13"
+              markerHeight="13"
+              refX="2"
+              refY="5"
+              orient="auto-start-reverse"
+              markerUnits="userSpaceOnUse"
+            >
+              <use xlinkHref="#reference-arrowhead-path" />
+            </marker>
+            <marker
+              className="reference-arrowhead"
+              id="reference-arrowhead-large"
+              viewBox="0 0 10 10"
+              markerWidth="16"
+              markerHeight="16"
+              refX="2"
+              refY="5"
+              orient="auto-start-reverse"
+              markerUnits="userSpaceOnUse"
+            >
+              <use xlinkHref="#reference-arrowhead-path" />
+            </marker>
+            <marker
+              className="reference-arrowhead"
+              id="reference-arrowhead-xlarge"
+              viewBox="0 0 10 10"
+              markerWidth="20"
+              markerHeight="20"
+              refX="2"
+              refY="5"
+              orient="auto-start-reverse"
+              markerUnits="userSpaceOnUse"
+            >
+              <use xlinkHref="#reference-arrowhead-path" />
+            </marker>
 
-              <path id="dataflow-arrowhead-path" d="M 0,0 L 10,5 L 0,10 C 3,7 3,3 0,0"/>
-              <circle id="dataflow-start-path" r="5" cy="5" cx="5"/>
-              <marker className="dataflow-start-highlight" id="dataflow-start-highlight" viewBox="0 0 10 10" markerWidth="12" markerHeight="12"
-                      refX="12" refY="5" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
-                <use xlinkHref="#dataflow-start-path" />
-              </marker>
-              <marker className="dataflow-arrowhead" id="dataflow-arrowhead-small" viewBox="0 0 10 10" markerWidth="10" markerHeight="10"
-                      refX="2" refY="5" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
-                <use xlinkHref="#dataflow-arrowhead-path" />
-              </marker>
-              <marker className="dataflow-arrowhead-highlight" id="dataflow-arrowhead-small-highlight" viewBox="0 0 10 10" markerWidth="10" markerHeight="10"
-                      refX="2" refY="5" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
-                <use xlinkHref="#dataflow-arrowhead-path" />
-              </marker>
-              <marker className="dataflow-arrowhead" id="dataflow-arrowhead-medium" viewBox="0 0 10 10" markerWidth="13" markerHeight="13"
-                      refX="2" refY="5" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
-                <use xlinkHref="#dataflow-arrowhead-path" />
-              </marker>
-              <marker className="dataflow-arrowhead" id="dataflow-arrowhead-large" viewBox="0 0 10 10" markerWidth="16" markerHeight="16"
-                      refX="2" refY="5" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
-                <use xlinkHref="#dataflow-arrowhead-path" />
-              </marker>
-              <marker className="dataflow-arrowhead" id="dataflow-arrowhead-xlarge" viewBox="0 0 10 10" markerWidth="20" markerHeight="20"
-                      refX="2" refY="5" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
-                <use xlinkHref="#dataflow-arrowhead-path" />
-              </marker>
+            <path
+              id="dataflow-arrowhead-path"
+              d="M 0,0 L 10,5 L 0,10 C 3,7 3,3 0,0"
+            />
+            <circle id="dataflow-start-path" r="5" cy="5" cx="5" />
+            <marker
+              className="dataflow-start-highlight"
+              id="dataflow-start-highlight"
+              viewBox="0 0 10 10"
+              markerWidth="12"
+              markerHeight="12"
+              refX="12"
+              refY="5"
+              orient="auto-start-reverse"
+              markerUnits="userSpaceOnUse"
+            >
+              <use xlinkHref="#dataflow-start-path" />
+            </marker>
+            <marker
+              className="dataflow-arrowhead"
+              id="dataflow-arrowhead-small"
+              viewBox="0 0 10 10"
+              markerWidth="10"
+              markerHeight="10"
+              refX="2"
+              refY="5"
+              orient="auto-start-reverse"
+              markerUnits="userSpaceOnUse"
+            >
+              <use xlinkHref="#dataflow-arrowhead-path" />
+            </marker>
+            <marker
+              className="dataflow-arrowhead-highlight"
+              id="dataflow-arrowhead-small-highlight"
+              viewBox="0 0 10 10"
+              markerWidth="10"
+              markerHeight="10"
+              refX="2"
+              refY="5"
+              orient="auto-start-reverse"
+              markerUnits="userSpaceOnUse"
+            >
+              <use xlinkHref="#dataflow-arrowhead-path" />
+            </marker>
+            <marker
+              className="dataflow-arrowhead"
+              id="dataflow-arrowhead-medium"
+              viewBox="0 0 10 10"
+              markerWidth="13"
+              markerHeight="13"
+              refX="2"
+              refY="5"
+              orient="auto-start-reverse"
+              markerUnits="userSpaceOnUse"
+            >
+              <use xlinkHref="#dataflow-arrowhead-path" />
+            </marker>
+            <marker
+              className="dataflow-arrowhead"
+              id="dataflow-arrowhead-large"
+              viewBox="0 0 10 10"
+              markerWidth="16"
+              markerHeight="16"
+              refX="2"
+              refY="5"
+              orient="auto-start-reverse"
+              markerUnits="userSpaceOnUse"
+            >
+              <use xlinkHref="#dataflow-arrowhead-path" />
+            </marker>
+            <marker
+              className="dataflow-arrowhead"
+              id="dataflow-arrowhead-xlarge"
+              viewBox="0 0 10 10"
+              markerWidth="20"
+              markerHeight="20"
+              refX="2"
+              refY="5"
+              orient="auto-start-reverse"
+              markerUnits="userSpaceOnUse"
+            >
+              <use xlinkHref="#dataflow-arrowhead-path" />
+            </marker>
 
-              <marker id="annotation-arrowhead" markerWidth="5" markerHeight="5"
-                      refX="5" refY="2.5" orient="auto">
-                <path d="M 0,0 L 5,2.5 L 0,5 L 0,0"/>
-              </marker>
-              <marker id="annotation-arrowhead-faded" markerWidth="5" markerHeight="5"
-                      refX="5" refY="2.5" orient="auto">
-                <path d="M 0,0 L 5,2.5 L 0,5 L 0,0"/>
-              </marker>
-              <marker id="ref-annotation-arrowhead" markerWidth="5" markerHeight="5"
-                      refX="0" refY="2.5" orient="auto">
-                <path d="M 5,0 L 0,2.5 L 5,5 L 5,0"/>
-              </marker>
-              <marker id="ref-annotation-arrowhead-faded" markerWidth="5" markerHeight="5"
-                      refX="0" refY="2.5" orient="auto">
-                <path d="M 5,0 L 0,2.5 L 5,5 L 5,0"/>
-              </marker>
-              <ellipse id="op-node-stamp"
-                       rx="7.5" ry="3" stroke="inherit" fill="inherit" />
-              <ellipse id="op-node-annotation-stamp"
-                       rx="5" ry="2" stroke="inherit" fill="inherit" />
-              <g id="op-series-vertical-stamp">
-                <use xlinkHref="#op-node-stamp" x="8" y="9" />
-                <use xlinkHref="#op-node-stamp" x="8" y="6" />
-                <use xlinkHref="#op-node-stamp" x="8" y="3" />
-              </g>
-              <g id="op-series-horizontal-stamp">
-                <use xlinkHref="#op-node-stamp" x="16" y="4" />
-                <use xlinkHref="#op-node-stamp" x="12" y="4" />
-                <use xlinkHref="#op-node-stamp" x="8" y="4" />
-              </g>
-              <g id="op-series-annotation-stamp">
-                <use xlinkHref="#op-node-annotation-stamp" x="9" y="2" />
-                <use xlinkHref="#op-node-annotation-stamp" x="7" y="2" />
-                <use xlinkHref="#op-node-annotation-stamp" x="5" y="2" />
-              </g>
-              <svg id="summary-icon" fill="#848484" height="12" viewBox="0 0 24 24" width="12">
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
-              </svg>
+            <marker
+              id="annotation-arrowhead"
+              markerWidth="5"
+              markerHeight="5"
+              refX="5"
+              refY="2.5"
+              orient="auto"
+            >
+              <path d="M 0,0 L 5,2.5 L 0,5 L 0,0" />
+            </marker>
+            <marker
+              id="annotation-arrowhead-faded"
+              markerWidth="5"
+              markerHeight="5"
+              refX="5"
+              refY="2.5"
+              orient="auto"
+            >
+              <path d="M 0,0 L 5,2.5 L 0,5 L 0,0" />
+            </marker>
+            <marker
+              id="ref-annotation-arrowhead"
+              markerWidth="5"
+              markerHeight="5"
+              refX="0"
+              refY="2.5"
+              orient="auto"
+            >
+              <path d="M 5,0 L 0,2.5 L 5,5 L 5,0" />
+            </marker>
+            <marker
+              id="ref-annotation-arrowhead-faded"
+              markerWidth="5"
+              markerHeight="5"
+              refX="0"
+              refY="2.5"
+              orient="auto"
+            >
+              <path d="M 5,0 L 0,2.5 L 5,5 L 5,0" />
+            </marker>
+            <ellipse
+              id="op-node-stamp"
+              rx="7.5"
+              ry="3"
+              stroke="inherit"
+              fill="inherit"
+            />
+            <ellipse
+              id="op-node-annotation-stamp"
+              rx="5"
+              ry="2"
+              stroke="inherit"
+              fill="inherit"
+            />
+            <g id="op-series-vertical-stamp">
+              <use xlinkHref="#op-node-stamp" x="8" y="9" />
+              <use xlinkHref="#op-node-stamp" x="8" y="6" />
+              <use xlinkHref="#op-node-stamp" x="8" y="3" />
+            </g>
+            <g id="op-series-horizontal-stamp">
+              <use xlinkHref="#op-node-stamp" x="16" y="4" />
+              <use xlinkHref="#op-node-stamp" x="12" y="4" />
+              <use xlinkHref="#op-node-stamp" x="8" y="4" />
+            </g>
+            <g id="op-series-annotation-stamp">
+              <use xlinkHref="#op-node-annotation-stamp" x="9" y="2" />
+              <use xlinkHref="#op-node-annotation-stamp" x="7" y="2" />
+              <use xlinkHref="#op-node-annotation-stamp" x="5" y="2" />
+            </g>
+            <svg
+              id="summary-icon"
+              fill="#848484"
+              height="12"
+              viewBox="0 0 24 24"
+              width="12"
+            >
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
+            </svg>
 
-              <g id="linearGradients"></g>
+            <g id="linearGradients" />
 
-              <pattern id="rectHatch" patternTransform="rotate(45 0 0)" width="5" height="5" patternUnits="userSpaceOnUse">
-                <line x1="0" y1="0" x2="0" y2="5" style={{strokeWidth: 1}}/>
-              </pattern>
-              <pattern id="ellipseHatch" patternTransform="rotate(45 0 0)" width="2" height="2" patternUnits="userSpaceOnUse">
-                <line x1="0" y1="0" x2="0" y2="2" style={{strokeWidth: 1}}/>
-              </pattern>
+            <pattern
+              id="rectHatch"
+              patternTransform="rotate(45 0 0)"
+              width="5"
+              height="5"
+              patternUnits="userSpaceOnUse"
+            >
+              <line x1="0" y1="0" x2="0" y2="5" style={{ strokeWidth: 1 }} />
+            </pattern>
+            <pattern
+              id="ellipseHatch"
+              patternTransform="rotate(45 0 0)"
+              width="2"
+              height="2"
+              patternUnits="userSpaceOnUse"
+            >
+              <line x1="0" y1="0" x2="0" y2="2" style={{ strokeWidth: 1 }} />
+            </pattern>
 
-              <filter id="health-pill-shadow" x="-40%" y="-40%" width="180%" height="180%">
-                <feGaussianBlur in="SourceAlpha" stdDeviation="0.8"/>
-                <feOffset dx="0" dy="0" result="offsetblur"/>
-                <feFlood flood-color="#000000"/>
-                <feComposite in2="offsetblur" operator="in"/>
-                <feMerge>
-                  <feMergeNode/>
-                  <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-              </filter>
-            </defs>
+            <filter
+              id="health-pill-shadow"
+              x="-40%"
+              y="-40%"
+              width="180%"
+              height="180%"
+            >
+              <feGaussianBlur in="SourceAlpha" stdDeviation="0.8" />
+              <feOffset dx="0" dy="0" result="offsetblur" />
+              <feFlood floodColor="#000000" />
+              <feComposite in2="offsetblur" operator="in" />
+              <feMerge>
+                <feMergeNode />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
 
-          <rect className={cs("graph-make", "nz-graph-make")} width="10000" height="10000"></rect>
-          <g ref="$root"></g>
+          <rect
+            className={cs("graph-make", "nz-graph-make")}
+            width="10000"
+            height="10000"
+          />
+          <g ref="$root" />
         </svg>
-        <div  ref="$minmapDiv" className="nz-graph-minmap">
+        <div ref="$minmapDiv" className="nz-graph-minmap">
           <svg>
             <defs>
-              <filter id="minimapDropShadow" x="-20%" y="-20%" width="150%" height="150%">
-                <feOffset result="offOut" in="SourceGraphic" dx="1" dy="1"></feOffset>
-                <feColorMatrix result="matrixOut" in="offOut" type="matrix"
-                               values="0.1 0 0 0 0 0 0.1 0 0 0 0 0 0.1 0 0 0 0 0 0.5 0"></feColorMatrix>
-                <feGaussianBlur result="blurOut" in="matrixOut" stdDeviation="2"></feGaussianBlur>
-                <feBlend in="SourceGraphic" in2="blurOut" mode="normal"></feBlend>
+              <filter
+                id="minimapDropShadow"
+                x="-20%"
+                y="-20%"
+                width="150%"
+                height="150%"
+              >
+                <feOffset result="offOut" in="SourceGraphic" dx="1" dy="1" />
+                <feColorMatrix
+                  result="matrixOut"
+                  in="offOut"
+                  type="matrix"
+                  values="0.1 0 0 0 0 0 0.1 0 0 0 0 0 0.1 0 0 0 0 0 0.5 0"
+                />
+                <feGaussianBlur
+                  result="blurOut"
+                  in="matrixOut"
+                  stdDeviation="2"
+                />
+                <feBlend in="SourceGraphic" in2="blurOut" mode="normal" />
               </filter>
             </defs>
-            <rect></rect>
+            <rect />
           </svg>
-          <canvas className="first"></canvas>
-          <canvas className="second"></canvas>
-          <canvas className="download"></canvas>
+          <canvas className="first" />
+          <canvas className="second" />
+          <canvas className="download" />
         </div>
       </div>
     );

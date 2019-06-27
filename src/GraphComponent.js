@@ -12,22 +12,33 @@ import * as _ from "lodash";
 import { EventEmitter } from "events";
 import FlinkGraphNodePortal from "./FlinkGraphNodePortal";
 let emitter = new EventEmitter();
-import './res/styles/flinkGraph.css'
 export default class GraphComponent {
-  constructor($root,$svg,$minmapDiv,beforeToggleExpand, event, flinkGraph) {
+  constructor(
+    $root,
+    $svg,
+    $minmapDiv,
+    beforeToggleExpand,
+    event,
+    flinkGraph,
+    edgeLabelFunction,
+    edgesLayoutFunction,
+    opNodeHeightFunction
+  ) {
     this.beforeToggleExpand = beforeToggleExpand;
     this.event = event;
     this.zoomInit = emitter;
     this.$root = $root;
-    this.$svg = $svg
+    this.$svg = $svg;
 
-    this.$minmapDiv = $minmapDiv
+    this.$minmapDiv = $minmapDiv;
     this.portalCacheMap = new Map();
     this._edgeGroupIndex = [];
     this._nodeGroupIndex = {};
     this.flinkGraph = flinkGraph;
+    this.edgeLabelFunction = edgeLabelFunction;
+    this.edgesLayoutFunction = edgesLayoutFunction;
+    this.opNodeHeightFunction = opNodeHeightFunction;
   }
-
 
   buildGraph = graphDef => {
     var _this = this;
@@ -35,16 +46,11 @@ export default class GraphComponent {
     return buildDef(graphDef)
       .then(function(graph) {
         _this.graph = graph;
-        console.log("buildDef");
 
-        console.log(graph);
         // 构建 Hierarchy
         return buildHierarchy(graph, { rankDirection: "LR" });
       })
       .then(function(graphHierarchy) {
-        console.log("buildDef.then");
-
-        console.log(graphHierarchy);
         _this.graphHierarchy = graphHierarchy;
         return _this.graphHierarchy;
       });
@@ -52,8 +58,6 @@ export default class GraphComponent {
   buildRenderGraphInfo = graphHierarchy => {
     var _this = this;
     return buildRender(graphHierarchy).then(function(renderGraph) {
-      console.log("renderGraph");
-      console.log(renderGraph);
       _this.renderHierarchy = renderGraph;
       return _this.renderHierarchy;
     });
@@ -68,8 +72,6 @@ export default class GraphComponent {
       renderHierarchy,
       this
     );
-    console.log("end buildGroup Scene");
-    console.log(this.sceneGroup);
   };
 
   nodeToggleExpand = event => {
@@ -98,7 +100,7 @@ export default class GraphComponent {
     this._edgeGroupIndex = [];
 
     this.portalCacheMap.forEach(function(v) {
-      v.nodePortal.ngOnDestroy()
+      v.nodePortal.ngOnDestroy();
     });
     this.portalCacheMap.clear();
 
@@ -114,7 +116,7 @@ export default class GraphComponent {
       _this.buildGroupScene(_this.renderHierarchy.root);
       setTimeout(function() {
         if (_this.selectedNode) {
-          traceInputs(this.$root,_this.renderHierarchy);
+          traceInputs(this.$root, _this.renderHierarchy);
         }
         if (_this.minmap) {
           _this.minmap.update();
@@ -182,7 +184,7 @@ export default class GraphComponent {
   };
 
   traceInputs = () => {
-    traceInputs(this.$root,this.renderHierarchy);
+    traceInputs(this.$root, this.renderHierarchy);
   };
 
   isNodeExpanded = e => {};
@@ -223,14 +225,16 @@ export default class GraphComponent {
         this
       );
       nodePortal.ngOnInit();
-      portalCache.hostObject.append(nodePortal)
-      let portal = {nodePortal:nodePortal ,hostObject: portalCache.hostObject}
+      portalCache.hostObject.append(nodePortal);
+      let portal = {
+        nodePortal: nodePortal,
+        hostObject: portalCache.hostObject
+      };
       this.portalCacheMap.set(renderNodeInfo, portal);
     }
   };
 
   addNodePortal = (element, renderNodeInfo) => {
-    console.log("addNodePortal");
     // BRIDGE 不需要定义
     if (renderNodeInfo.node.type === NodeType.BRIDGE) {
       return;
@@ -238,6 +242,7 @@ export default class GraphComponent {
     // 嵌入模版的容器
 
     var nodeForeignObject = element.select("foreignObject").node();
+    element.select("foreignObject").selectAll("*").remove()
 
     var portalCache = this.portalCacheMap.get(renderNodeInfo);
     // 是否被添加过
@@ -247,6 +252,7 @@ export default class GraphComponent {
         portalCache.nodePortal.ngOnDestroy();
         this.portalCacheMap.delete(renderNodeInfo);
       } else {
+        portalCache.nodePortal.ngOnInit();
         nodeForeignObject.append(portalCache.nodePortal.template[0]);
         return;
       }
@@ -259,7 +265,7 @@ export default class GraphComponent {
     );
     nodePortal.ngOnInit();
     nodeForeignObject.append(nodePortal.template[0]);
-    let portal = {nodePortal:nodePortal ,hostObject: nodeForeignObject}
+    let portal = { nodePortal: nodePortal, hostObject: nodeForeignObject };
     this.portalCacheMap.set(renderNodeInfo, portal);
   };
 
@@ -275,13 +281,10 @@ export default class GraphComponent {
     this.minmap = new GraphMinmapComponent(this.$minmapDiv, this);
 
     this.minmap.ngOnInit();
-
   };
   ngAfterContentInit = () => {
     var _this = this;
-    console.log("ngAfterContentInit");
     requestAnimationFrame(function() {
-      console.log("after requestAnimationFrame");
       _this.bindZoom();
     });
   };
@@ -298,7 +301,6 @@ export default class GraphComponent {
   bindZoom = () => {
     var _this = this;
     this.zoom = new DagreZoom(this.$root, this.$svg);
-    console.log("emit zoomInit");
     this.zoomInit.emit("zoomInit");
     if (this.minmap) {
       this.zoom.transformChange.subscribe(function(e) {

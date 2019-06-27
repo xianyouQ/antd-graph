@@ -135,7 +135,7 @@ export function buildGroupScene(
   // requestAnimationFrame 避免多节点时掉帧
   // Create the layer of edges for this scene (paths).
   requestAnimationFrame(function() {
-    buildGroupEdge(container,coreGroup, renderNode.coreGraph, sceneElement);
+    buildGroupEdge(coreGroup, renderNode.coreGraph, sceneElement);
   });
   // Create the layer of nodes for this scene (ellipses, rects etc).
   requestAnimationFrame(function() {
