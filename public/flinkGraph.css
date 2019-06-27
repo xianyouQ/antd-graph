@@ -118,3 +118,42 @@
 .nz-graph-minmap svg {
   position: absolute;
 }
+
+.nz-graph.scene .op>.annotation-node>.nodecolortarget, .nz-graph.scene .op>.nodeshape>.nodecolortarget {
+  cursor: default;
+  fill: rgba(230,247,255,.8);
+  stroke: #91d5ff;
+  stroke-width: .75px;
+}
+.op-wrapper {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid rgba(24,144,255,.1);
+  font-size: 12px;
+  background: rgba(24,144,255,.2);
+}
+.op-wrapper .attr-wrap .attr {
+  margin: 0;
+}
+.op-wrapper .attr-wrap {
+  margin-top: 8px;
+}
+.op-wrapper .attr-wrap .attr .attr-name {
+  font-weight: 700;
+  width: 120px;
+  display: inline-block;
+}
+.op-wrapper p.attr {
+  margin: 0;
+  line-height: 1.3;
+  color: rgba(0,0,0,.65);
+}
+.op-wrapper .node-name {
+  margin-top: 8px;
+  word-break: break-all;
+}
+.nz-graph.scene .edge .selectableedge {
+  cursor: pointer;
+}
