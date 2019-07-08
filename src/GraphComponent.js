@@ -11,6 +11,9 @@ import GraphMinmapComponent from "./GraphMinmapComponent";
 import * as _ from "lodash";
 import { EventEmitter } from "events";
 import FlinkGraphNodePortal from "./FlinkGraphNodePortal";
+import React from "react";
+import ReactDOM from "react-dom";
+
 let emitter = new EventEmitter();
 export default class GraphComponent {
   constructor(
@@ -208,8 +211,7 @@ export default class GraphComponent {
   removeNodeGroupPortal = renderNodeInfo => {
     if (this.portalCacheMap.has(renderNodeInfo)) {
       var portal = this.portalCacheMap.get(renderNodeInfo);
-      portal.nodePortal.ngOnDestroy();
-
+      ReactDOM.unmountComponentAtNode(portal.hostObject);
       this.portalCacheMap.delete(renderNodeInfo);
     }
   };
@@ -218,11 +220,20 @@ export default class GraphComponent {
   emitChangeByNodeInfo = renderNodeInfo => {
     var portalCache = this.portalCacheMap.get(renderNodeInfo);
     if (portalCache) {
-      portalCache.nodePortal.ngOnInit();
-      while (portalCache.hostObject.firstChild) {
-        portalCache.hostObject.removeChild(portalCache.hostObject.firstChild);
+      let verticesDetail = null;
+      let operatorsDetail = null;
+      if (renderNodeInfo && renderNodeInfo.node.isGroupNode) {
+        verticesDetail = this.flinkGraph.getVerticesDetail(renderNodeInfo);
+      } else {
+        operatorsDetail = this.flinkGraph.getOperatorsDetail(renderNodeInfo);
       }
-      portalCache.hostObject.append(portalCache.nodePortal.template[0])
+      let newNodePortal = React.cloneElement(portalCache.nodePortal, {
+        graphComponent: this,
+        nodeInfo: renderNodeInfo,
+        verticesDetail: verticesDetail,
+        operatorsDetail: operatorsDetail
+      });
+      ReactDOM.render(newNodePortal, portalCache.hostObject);
     }
   };
 
@@ -234,26 +245,46 @@ export default class GraphComponent {
     // 嵌入模版的容器
 
     var nodeForeignObject = element.select("foreignObject").node();
-    while (nodeForeignObject.firstChild) {
-      nodeForeignObject.removeChild(nodeForeignObject.firstChild);
-    }
+
     var portalCache = this.portalCacheMap.get(renderNodeInfo);
     // 是否被添加过
     if (this.portalCacheMap.has(renderNodeInfo)) {
       // 如果被添加过但是当前容器中却不存在之前的模版则重新添加（因为被收起或其他原因被移除）
-      portalCache.nodePortal.ngOnInit();
-
-      nodeForeignObject.append(portalCache.nodePortal.template[0]);
+      let verticesDetail = null;
+      let operatorsDetail = null;
+      if (renderNodeInfo && renderNodeInfo.node.isGroupNode) {
+        verticesDetail = this.flinkGraph.getVerticesDetail(renderNodeInfo);
+      } else {
+        operatorsDetail = this.flinkGraph.getOperatorsDetail(renderNodeInfo);
+      }
+      let newNodePortal = React.cloneElement(portalCache.nodePortal, {
+        graphComponent: this,
+        nodeInfo: renderNodeInfo,
+        verticesDetail: verticesDetail,
+        operatorsDetail: operatorsDetail
+      });
+      ReactDOM.render(newNodePortal, nodeForeignObject);
       return;
     }
-
-    let nodePortal = new FlinkGraphNodePortal(
-      renderNodeInfo,
-      this.flinkGraph,
-      this
+    let verticesDetail = null;
+    let operatorsDetail = null;
+    if (renderNodeInfo && renderNodeInfo.node.isGroupNode) {
+      verticesDetail = this.flinkGraph.getVerticesDetail(renderNodeInfo);
+    } else {
+      operatorsDetail = this.flinkGraph.getOperatorsDetail(renderNodeInfo);
+    }
+    let nodePortal = React.createElement(
+      FlinkGraphNodePortal,
+      {
+        graphComponent: this,
+        nodeInfo: renderNodeInfo,
+        verticesDetail: verticesDetail,
+        operatorsDetail: operatorsDetail
+      },
+      null
     );
-    nodePortal.ngOnInit();
-    nodeForeignObject.append(nodePortal.template[0]);
+    ReactDOM.render(nodePortal, nodeForeignObject);
+
     let portal = { nodePortal: nodePortal, hostObject: nodeForeignObject };
     this.portalCacheMap.set(renderNodeInfo, portal);
   };
