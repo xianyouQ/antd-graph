@@ -93,12 +93,19 @@ export default class FlinkGraph extends Component {
     this.graphComponent.ngOnInit();
     this.itemChange = (msg, data) => console.log(msg);
     emitter.addListener("node-toggle-expand", this.itemChange); //注册事件
+    emitter.addListener("vertices-click", this.itemChange); //注册事件
+
     const { jobDetailCorrect } = this.props;
     this.initGraph(jobDetailCorrect);
+  }
+  shouldComponentUpdate(newProps, newState) {
+    return false;
   }
   componentWillUnmount() {
     if (this.itemChange) {
       emitter.removeListener("node-toggle-expand", this.itemChange); //取消事件
+      emitter.removeListener("vertices-click", this.itemChange); //取消事件
+
     }
     this.graphComponent.ngOnDestroy();
   }
@@ -106,6 +113,7 @@ export default class FlinkGraph extends Component {
   componentWillReceiveProps(newProps) {
     this.setTransformCache();
     const { jobDetailCorrect } = newProps;
+    console.log(jobDetailCorrect)
     if (jobDetailCorrect != null && this.graphComponent != null) {
       if (this.state.jid == jobDetailCorrect.plan.jid) {
         this.updateData(jobDetailCorrect);
@@ -222,6 +230,7 @@ export default class FlinkGraph extends Component {
     let displayName = "";
     let inQueue = null;
     let outQueue = null;
+    let status = "UNKNOWN";
     if (vertices.name) {
       displayName =
         vertices.name.length > 125
@@ -231,6 +240,12 @@ export default class FlinkGraph extends Component {
       displayName = vertices.name;
     }
 
+    this.sourceData.vertices.forEach(vertice => {
+      if (vertice.id == vertices.id) {
+        status = vertice.status;
+        return false;
+      }
+    })
     if (
       vertices.metrics &&
       Number.isFinite(vertices.metrics["buffers-in-pool-usage-max"])
@@ -266,6 +281,7 @@ export default class FlinkGraph extends Component {
     this.verticesDetailsCache.set(nodeRenderInfo, {
       displayName,
       name: vertices.name,
+      status: status,
       inQueue: Number.isFinite(inQueue) ? inQueue : null,
       outQueue: Number.isFinite(outQueue) ? outQueue : null,
       parallelism:
@@ -285,6 +301,8 @@ export default class FlinkGraph extends Component {
       Object.assign(v, this.getVerticesDetail(k, true));
       this.graphComponent.emitChangeByNodeInfo(k);
     });
+    console.log(this.operatorsDetailsCache)
+    console.log(this.verticesDetailsCache)
   };
   getOperatorsDetail = (nodeRenderInfo, force = false) => {
     if (this.operatorsDetailsCache.has(nodeRenderInfo) && !force) {

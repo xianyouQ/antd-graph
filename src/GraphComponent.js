@@ -218,19 +218,11 @@ export default class GraphComponent {
   emitChangeByNodeInfo = renderNodeInfo => {
     var portalCache = this.portalCacheMap.get(renderNodeInfo);
     if (portalCache) {
-      portalCache.nodePortal.ngOnDestroy();
-      let nodePortal = new FlinkGraphNodePortal(
-        renderNodeInfo,
-        this.flinkGraph,
-        this
-      );
-      nodePortal.ngOnInit();
-      portalCache.hostObject.append(nodePortal);
-      let portal = {
-        nodePortal: nodePortal,
-        hostObject: portalCache.hostObject
-      };
-      this.portalCacheMap.set(renderNodeInfo, portal);
+      portalCache.nodePortal.ngOnInit();
+      while (portalCache.hostObject.firstChild) {
+        portalCache.hostObject.removeChild(portalCache.hostObject.firstChild);
+      }
+      portalCache.hostObject.append(portalCache.nodePortal.template[0])
     }
   };
 
@@ -242,20 +234,17 @@ export default class GraphComponent {
     // 嵌入模版的容器
 
     var nodeForeignObject = element.select("foreignObject").node();
-    element.select("foreignObject").selectAll("*").remove()
-
+    while (nodeForeignObject.firstChild) {
+      nodeForeignObject.removeChild(nodeForeignObject.firstChild);
+    }
     var portalCache = this.portalCacheMap.get(renderNodeInfo);
     // 是否被添加过
     if (this.portalCacheMap.has(renderNodeInfo)) {
       // 如果被添加过但是当前容器中却不存在之前的模版则重新添加（因为被收起或其他原因被移除）
-      if (!element.node().contains(portalCache.nodePortal.template[0])) {
-        portalCache.nodePortal.ngOnDestroy();
-        this.portalCacheMap.delete(renderNodeInfo);
-      } else {
-        portalCache.nodePortal.ngOnInit();
-        nodeForeignObject.append(portalCache.nodePortal.template[0]);
-        return;
-      }
+      portalCache.nodePortal.ngOnInit();
+
+      nodeForeignObject.append(portalCache.nodePortal.template[0]);
+      return;
     }
 
     let nodePortal = new FlinkGraphNodePortal(
@@ -340,7 +329,6 @@ export default class GraphComponent {
     // 用于标记之前未展开的父节点，如果都展开了它则为空，将不会重新进行渲染
 
     var topParentNodeToBeExpanded;
-    // 倒序展开
     _.forEachRight(nodeParents, function(parentName) {
       _this.renderHierarchy.buildSubhierarchy(parentName);
 

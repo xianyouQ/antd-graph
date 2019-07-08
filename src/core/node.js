@@ -158,7 +158,7 @@ function addButton(selection, d, sceneElement) {
     ((/** @type {?} */ (group))).on('click', function (_d) {
         // Stop this event's propagation so that it isn't also considered a
         // node-select.
-        ((/** @type {?} */ (d3.event))).stopPropagation();
+        //((/** @type {?} */ (d3.event))).stopPropagation();
         sceneElement.fire('node-toggle-expand', { name: _d.node.name });
     });
     positionButton(group, d);
@@ -205,7 +205,7 @@ function addInteraction(selection, d, sceneElement, disableInteraction) {
         .on('click', function (_d) {
         // Stop this event's propagation so that it isn't also considered
         // a graph-select.
-        ((/** @type {?} */ (d3.event))).stopPropagation();
+        //((/** @type {?} */ (d3.event))).stopPropagation();
         if (clickWait) {
             clearTimeout(clickWait);
             clickWait = null;
@@ -462,7 +462,6 @@ export function traceInputs(container,renderGraphInfo) {
  * @return {?}
  */
 export function traceFirstOutputsOfOpNode(renderGraphInfo, node, edgesSelector) {
-    console.log(node);
     edgesSelector.each(function (d) {
         if (d.v === node.name) {
             /** @type {?} */
@@ -487,7 +486,6 @@ export function traceFirstOutputsOfOpNode(renderGraphInfo, node, edgesSelector) 
  * @return {?}
  */
 export function _getAllContainedOpNodes(nodeName, renderGraphInfo) {
-    console.log(renderGraphInfo)
     /** @type {?} */
     var opNodes = [];
     // Get current node.

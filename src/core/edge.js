@@ -88,11 +88,7 @@ export function buildGroupEdge(sceneGroup, graph, sceneElement) {
     edges
   );
   /** @type {?} */
-  console.log("edges");
-  console.log(edges);
 
-  console.log("sceneGroup");
-  console.log(sceneGroup);
   var container = selectOrCreateChild(sceneGroup, "g", Class.Edge.CONTAINER);
   // Select all children and join with data.
   // (Note that all children of g.edges are g.edge)
@@ -103,8 +99,7 @@ export function buildGroupEdge(sceneGroup, graph, sceneElement) {
     })
     .data(edges, getEdgeKey);
 
-  console.log("edgeGroups");
-  console.log(edgeGroups);
+
   // Make edges a group to support rendering multiple lines for metaedge
   edgeGroups
     .enter()
@@ -113,7 +108,6 @@ export function buildGroupEdge(sceneGroup, graph, sceneElement) {
     .attr("data-edge", getEdgeKey)
     .each(function(d) {
       /** @type {?} */
-      console.log(d);
       var edgeGroup = select(this);
       d.label.edgeGroup = edgeGroup;
       // index node group for quick highlighting
@@ -243,11 +237,6 @@ export function appendEdge(edgeGroup, d, graphComponent, edgeClass) {
  * @return {?}
  */
 function position(d) {
-  console.log("position");
-  console.log(d);
-
-  var path = d3.select(this).select("path.edgeline");
-  console.log(path);
   d3.select(this)
     .select("path." + Class.Edge.LINE)
     .transition()
@@ -292,7 +281,6 @@ export function getLabelForBaseEdge(baseEdge, renderInfo) {
  * @return {?}
  */
 function getEdgePathInterpolator(d, i, a) {
-  console.log("getEdgePathInterpolator");
 
   /** @type {?} */
   var renderMetaedgeInfo = /** @type {?} */ (d.label);
@@ -304,7 +292,6 @@ function getEdgePathInterpolator(d, i, a) {
   // of the path.
   var root = d3.select(this);
   if (d.label.startMarkerId) {
-    console.log(root.select("#" + d.label.startMarkerId));
     points = adjustPathPointsForMarker(
       points,
       d3.select("#" + d.label.startMarkerId),
@@ -312,7 +299,6 @@ function getEdgePathInterpolator(d, i, a) {
     );
   }
   if (d.label.endMarkerId) {
-    console.log(root.select("#" + d.label.endMarkerId));
     points = adjustPathPointsForMarker(
       points,
       d3.select("#" + d.label.endMarkerId),

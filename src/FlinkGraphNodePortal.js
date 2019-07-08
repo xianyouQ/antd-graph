@@ -4,14 +4,29 @@ const canToggleExpand = renderNodeInfo => {
   const children = renderNodeInfo.node.getChildren();
   return !(children.length === 1 && children[0].attr["virtual"]);
 };
+const COLOR_MAP = {
+  TOTAL      : '#112641',
+  RUNNING    : '#52c41a',
+  FAILED     : '#f5222d',
+  FINISHED   : '#1890ff',
+  CANCELED   : '#fa8c16',
+  CANCELING  : '#faad14',
+  CREATED    : '#2f54eb',
+  DEPLOYING  : '#13c2c2',
+  RECONCILING: '#eb2f96',
+  SCHEDULED  : '#722ed1',
+  IN_PROGRESS: '#faad14',
+  COMPLETED  : '#1890ff'
+};
 export default class FlinkGraphNodePortal {
   constructor(nodeInfo, flinkGraph, graphComponent) {
-    console.log(nodeInfo);
     this.flinkGraph = flinkGraph;
     this.graphComponent = graphComponent;
     this.nodeInfo = nodeInfo;
     this.template = null;
     this.nodeselect$  =  (msg, data) => {
+      console.log(msg)
+      console.log(data)
       if (
         data.eventName === "node-select" &&
         data.event.name === this.nodeInfo.node.name
@@ -46,10 +61,10 @@ export default class FlinkGraphNodePortal {
       '      <div class="attr-wrap">\n' +
       '        <p class="attr"><span class="attr-name">Parallelism</span></p>\n' +
       '        <p class="attr">\n' +
-      "          <span class=\"attr-name\">In Queue</span>: '-'\n" +
+      "          <span class=\"attr-name\">In Queue</span>'-'\n" +
       "        </p>\n" +
       '        <p class="attr">\n' +
-      "          <span class=\"attr-name\">Out Queue</span>: '-'\n" +
+      "          <span class=\"attr-name\">Out Queue</span>'-'\n" +
       "        </p>\n" +
       "      </div>\n" +
       "    </div>\n" +
@@ -59,8 +74,8 @@ export default class FlinkGraphNodePortal {
       "<div\n" +
       '    class="op-wrapper">\n' +
       '    <div class="attr-wrap">\n' +
-      '      <p class="attr"><span class="attr-name">Records Received</span>: </p>\n' +
-      '      <p class="attr"><span class="attr-name">Records Sent</span>: </p>\n' +
+      '      <p class="attr"></p>\n' +
+      '      <p class="attr"></p>\n' +
       "    </div>\n" +
       '    <div class="node-name">\n' +
       "      <p>\n" +
@@ -77,9 +92,6 @@ export default class FlinkGraphNodePortal {
     this.graphComponent.event.removeListener("node-select",this.nodeselect$);
   };
   nodeClick = () => {
-    if (!this.nodeInfo.node.isGroupNode) {
-      return;
-    }
     this.graphComponent.event.emit({
       eventName: "vertices-click",
       event: this.flinkGraph.getNodesItemCorrect(this.nodeInfo.node.name)
@@ -103,27 +115,41 @@ export default class FlinkGraphNodePortal {
     }
     this.renderResult();
   };
+  onNonGroupNodeClick=(e) => {
+    console.log(e)
+
+    if (this.nodeInfo.node.isGroupNode) {
+      return
+    } else {
+      this.nodeClick()
+    }
+  }
+  onGroupNodeClick = (e) => {
+    console.log(e)
+    if (this.nodeInfo.expanded) {
+      return
+    } else {
+      this.nodeClick()
+    }
+  }
   renderResult = () => {
     if (!this.nodeInfo.node.isGroupNode) {
-      if (!this.template) {
-        this.template = $(this.NonGroupnodeTemplate);
-      }
+      this.template = $(this.NonGroupnodeTemplate);
       if (this.operatorsDetail) {
         if (this.operatorsDetail.abnormal) {
           this.template.find("div.op-wrapper").addClass("danger-node");
         }
+        this.template.find("div.op-wrapper").on("click",e=>this.onNonGroupNodeClick(e));
         this.template
-          .find("span.attr-name:eq(0)")
-          .after(`: ${this.operatorsDetail.numRecordsIn}`);
+          .find("p.attr:eq(0)")
+          .html(`<span class="attr-name">Records Received: ${this.operatorsDetail.numRecordsIn}</span>`);
         this.template
-          .find("span.attr-name:eq(1)")
-          .after(`: ${this.operatorsDetail.numRecordsOut}`);
+          .find("p.attr:eq(1)")
+          .html(`<span class="attr-name">Records Sent: ${this.operatorsDetail.numRecordsOut}</span>`);
         this.template.find("div.node-name p").html(this.operatorsDetail.displayName);
       }
     } else {
-      if (!this.template) {
-        this.template = $(this.groupnodeTemplate);
-      }
+      this.template = $(this.groupnodeTemplate);
       if (this.verticesDetail) {
         if (
           this.verticesDetail.inQueue >= 1 ||
@@ -134,26 +160,44 @@ export default class FlinkGraphNodePortal {
         if (this.nodeInfo.expanded) {
           this.template.find("div.group-wrapper").addClass("expanded");
           this.template.find("span.vertex").hide();
+          this.template.find("h5.sub-title").hide();
+          this.template.find("div.attr-wrap").hide();
 
           this.template
             .find("a.toggle-expand")
-            .html(`<i class="anticon anticon-minus"></i>`);
+            .html(`<i>
+                    <svg viewBox="64 64 896 896" class="" data-icon="minus" width="1em" height="1em" fill="currentColor" aria-hidden="true" focusable="false">
+                    <path d="M872 474H152c-4.4 0-8 3.6-8 8v60c0 4.4 3.6 8 8 8h720c4.4 0 8-3.6 8-8v-60c0-4.4-3.6-8-8-8z"></path>
+                    </svg>
+                </i>`);
         } else {
           this.template.find("span.parallel").hide();
           this.template
             .find("a.toggle-expand")
-            .html(`<i class="anticon anticon-plus"></i>`);
+            .html(`<i>
+                    <svg viewBox="64 64 896 896" class="" data-icon="plus" width="1em" height="1em" fill="currentColor" aria-hidden="true" focusable="false">
+                    <path d="M482 152h60q8 0 8 8v704q0 8-8 8h-60q-8 0-8-8V160q0-8 8-8z"></path><path d="M176 474h672q8 0 8 8v60q0 8-8 8H176q-8 0-8-8v-60q0-8 8-8z"></path>
+                    </svg>
+                    </i>`);
+          this.template.find("h5.sub-title").show();
+          this.template.find("div.attr-wrap").show();
+
         }
         if (this.canToggleExpand) {
           this.template
             .find("span.vertex")
-            .text(`Vertex(${this.nodeInfo.node.cardinality} Operators)`);
+            .text(`Vertex(${this.nodeInfo.node.cardinality} ops)  ${this.verticesDetail.status}`);
         } else {
           this.template.find("span.vertex").text(`Vertex`);
           this.template.find("a.toggle-expand").hide();
         }
-        this.template.find("h5.sub-title").text(this.verticesDetail.displayName);
+        if (this.verticesDetail.status) {
+          this.template.find("div.group-header").css('background',COLOR_MAP[this.verticesDetail.status])
+        }
+        this.template.find("div.group-body").click(e=>this.onGroupNodeClick(e))
 
+        this.template.find("h5.sub-title").text(this.verticesDetail.displayName);
+        this.template
         this.template
           .find("a.toggle-expand")
           .click(event => this.toggleExpand(event));
@@ -162,11 +206,11 @@ export default class FlinkGraphNodePortal {
           .html(
             `Parallel: ${
               this.verticesDetail.parallelism
-              }<span className="ant-divider" />InQ: ${
+              }<span class="ant-divider" />InQ: ${
               this.verticesDetail.inQueue
-              }%<span className="ant-divider" /> OutQ: ${
+              }%<span class="ant-divider" /> OutQ: ${
               this.verticesDetail.outQueue
-              }%}`
+              }%`
           );
         this.template
           .find("div.attr-wrap p.attr:eq(0)")

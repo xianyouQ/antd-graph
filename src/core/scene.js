@@ -100,8 +100,6 @@ export function buildGroupScene(
   sceneElement,
   sceneClass
 ) {
-  sceneClass = Class.Scene.GROUP;
-
   if (sceneClass == null) {
     sceneClass = Class.Scene.GROUP;
   }
@@ -131,7 +129,6 @@ export function buildGroupScene(
     // is rendered on the top.
     coreNodes.reverse();
   }
-  console.log(container);
   // requestAnimationFrame 避免多节点时掉帧
   // Create the layer of edges for this scene (paths).
   requestAnimationFrame(function() {
@@ -230,7 +227,6 @@ export function selectOrCreateChild(container, tagName, className, before) {
     // otherwise, append
     container.node().appendChild(newElement);
   }
-  console.log(container)
   return (
     select(newElement)
     // need to bind data to emulate d3_selection.append
