@@ -414,7 +414,7 @@ export default class FlinkGraph extends Component {
           <span className="ant-divider" />
           <a onClick={() => this.collapseAll()}>Collapse All</a>
         </div>
-        <svg id="svg" ref="$svg">
+        <svg id="svg" ref="$svg" style={{ height: "500px", width: "100%" }}>
           <defs>
             <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
               <feDropShadow dx="0" dy="0" stdDeviation="2" />
